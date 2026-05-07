@@ -67,6 +67,7 @@ export interface Registration {
   volume: number;
   price: number;
   referralId?: string;
+  referralCode?: string;
   refundBankInfo?: {
     bankName: string;
     accountNumber: string;
@@ -78,5 +79,8 @@ export interface Registration {
   signedAt?: string;
   depositedAt?: string;
   allocatedVolume?: number;
+  allocatedPrice?: number;
   totalPaid?: number;
+  refundAmount?: number;
+  additionalPaymentRequired?: number;
 }
