@@ -599,6 +599,7 @@ export default function App() {
     volume: 100,
     price: 32000,
     depositMethod: 'STOCK_ACCOUNT',
+    stockAccount: '001C123456 - NGUYÊN VĂN A',
     refundBankInfo: {
       bankName: '',
       accountNumber: '',
@@ -651,6 +652,7 @@ export default function App() {
   const [expandedQuarterly, setExpandedQuarterly] = useState(false);
   const [expandedMonthly, setExpandedMonthly] = useState(false);
   const [expandedRefundInfo, setExpandedRefundInfo] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'manual'>('qr');
 
   const handleSelectIpo = (ipo: IPOEvent) => {
     setSelectedIpo(ipo);
@@ -658,6 +660,7 @@ export default function App() {
        volume: ipo.minVolume,
        price: ipo.minPrice,
        depositMethod: 'STOCK_ACCOUNT',
+       stockAccount: '001C123456 - NGUYÊN VĂN A',
        refundBankInfo: {
          bankName: '',
          accountNumber: '',
@@ -1045,6 +1048,24 @@ export default function App() {
             <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6 px-1 text-center">Thông tin đăng ký</h2>
             
             <div className="space-y-5 mb-8 flex-1">
+              {/* Security Account Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Tài khoản chứng khoán</label>
+                <div className="relative group">
+                  <select 
+                    value={formData.stockAccount}
+                    onChange={(e) => setFormData({...formData, stockAccount: e.target.value})}
+                    className="w-full bg-blue-50/50 border border-blue-100 rounded-xl px-4 py-4 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="001C123456 - NGUYÊN VĂN A">001C123456 - NGUYÊN VĂN A</option>
+                    <option value="001C654321 - NGUYÊN VĂN B">001C654321 - NGUYÊN VĂN B</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <ChevronDown size={20} />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Số lượng đăng ký</label>
                 <div className="relative">
@@ -1121,20 +1142,6 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Mã giới thiệu (nếu có)</label>
-                <div className="relative">
-                  <input 
-                    type="text"
-                    value={formData.referralId || ''}
-                    onChange={(e) => setFormData({...formData, referralId: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all uppercase placeholder:text-gray-300"
-                    placeholder="NHẬP MÃ CUSTID"
-                  />
-                </div>
-                <p className="text-[10px] text-gray-400 mt-2 font-medium">Nhập mã nhân viên hoặc mã người giới thiệu để được hỗ trợ tốt nhất.</p>
-              </div>
-
               <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                 <button 
                   onClick={() => setExpandedRefundInfo(!expandedRefundInfo)}
@@ -1200,6 +1207,20 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Mã giới thiệu (CUSTID)</label>
+                <div className="relative">
+                  <input 
+                    type="text"
+                    value={formData.referralId || ''}
+                    onChange={(e) => setFormData({...formData, referralId: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 font-bold text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all uppercase placeholder:text-gray-300"
+                    placeholder="NHẬP MÃ GIỚI THIỆU"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2 font-medium px-1">Nhập mã nhân viên hoặc mã người giới thiệu (nếu có) để được hỗ trợ tốt nhất.</p>
+              </div>
             </div>
 
             <div className="mt-auto pt-6">
@@ -1237,6 +1258,10 @@ export default function App() {
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">TK Chứng khoán:</span>
+                    <span className="font-bold text-gray-900">{formData.stockAccount}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Mã Chứng Khoán:</span>
                     <span className="font-bold text-gray-900">{selectedIpo?.stockCode}</span>
                   </div>
@@ -1248,10 +1273,10 @@ export default function App() {
                     <span className="text-gray-500">Giá đăng ký:</span>
                     <span className="font-bold text-gray-900">{formData.price?.toLocaleString()} VNĐ</span>
                   </div>
-                  {formData.referralCode && (
+                  {formData.referralId && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Mã giới thiệu:</span>
-                      <span className="font-bold text-orange-600">{formData.referralCode}</span>
+                      <span className="font-bold text-orange-600 uppercase">{formData.referralId}</span>
                     </div>
                   )}
                   <div className="h-px bg-orange-100 my-1" />
@@ -1482,72 +1507,104 @@ export default function App() {
                   <h3 className="text-3xl font-black text-white">{remainingAmount.toLocaleString()} VNĐ</h3>
                 </div>
               </div>
-  
-              <div className="bg-white border-2 border-dashed border-gray-200 rounded-3xl p-8 flex flex-col items-center mb-8 hover:border-orange-200 transition-colors">
-                <div className="w-48 h-48 bg-white border border-gray-100 rounded-2xl flex items-center justify-center mb-4 p-2 shadow-inner relative">
-                  <QrCode size={140} className="text-gray-900" />
-                  <div className="absolute inset-0 bg-orange-600/5 opacity-0 hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
-                    <Search className="text-orange-600" size={32} />
-                  </div>
-                </div>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center px-4 leading-relaxed">
-                  Quét mã QR để tự động điền <br /> thông tin & nội dung <span className="text-orange-600">THANHTOAN</span>
-                </p>
+
+              {/* Payment Method Toggle */}
+              <div className="flex p-1 bg-gray-100 rounded-2xl mb-8">
+                <button 
+                  onClick={() => setPaymentMethod('qr')}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    paymentMethod === 'qr' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'
+                  }`}
+                >
+                  <QrCode size={16} />
+                  Mã QR
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod('manual')}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    paymentMethod === 'manual' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'
+                  }`}
+                >
+                  <FileText size={16} />
+                  Chuyển khoản
+                </button>
               </div>
   
-              <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100 shadow-sm">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest border-b border-gray-200 pb-3 flex items-center gap-2 font-mono">
-                  <FileText size={14} className="text-orange-500" />
-                  Chi tiết tài khoản nộp tiền
-                </h4>
-                <div className="space-y-5">
-                  <div className="flex justify-between items-start">
+              {paymentMethod === 'qr' ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white border-2 border-dashed border-gray-200 rounded-3xl p-8 flex flex-col items-center mb-8 hover:border-orange-200 transition-colors"
+                >
+                  <div className="w-48 h-48 bg-white border border-gray-100 rounded-2xl flex items-center justify-center mb-4 p-2 shadow-inner relative">
+                    <QrCode size={140} className="text-gray-900" />
+                    <div className="absolute inset-0 bg-orange-600/5 opacity-0 hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
+                      <Search className="text-orange-600" size={32} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center px-4 leading-relaxed">
+                    Quét mã QR để tự động điền <br /> thông tin & nội dung <span className="text-orange-600">THANHTOAN</span>
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100 shadow-sm"
+                >
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest border-b border-gray-200 pb-3 flex items-center gap-2 font-mono">
+                    <FileText size={14} className="text-orange-500" />
+                    Chi tiết tài khoản nộp tiền
+                  </h4>
+                  <div className="space-y-5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Ngân hàng hưởng</p>
+                        <p className="text-sm font-black text-gray-900 tracking-tight">BIDV - CN TP.HCM</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                         <CheckCircle2 size={16} className="text-emerald-500" />
+                      </div>
+                    </div>
                     <div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Ngân hàng hưởng</p>
-                      <p className="text-sm font-black text-gray-900 tracking-tight">BIDV - CN TP.HCM</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Số tài khoản</p>
+                      <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
+                        <p className="text-sm font-black text-orange-600 tracking-widest">12010006789456</p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('12010006789456');
+                            alert('Đã sao chép số tài khoản');
+                          }}
+                          className="text-orange-500 hover:text-orange-600 active:scale-90 transition-all p-1"
+                        >
+                          <FileText size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                       <CheckCircle2 size={16} className="text-emerald-500" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Tên tài khoản</p>
+                      <p className="text-sm font-black text-gray-900 tracking-tight uppercase underline decoration-orange-200 decoration-2">VIETCAP SECURITIES - IPO {selectedIpo.stockCode}</p>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Số tài khoản</p>
-                    <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
-                      <p className="text-sm font-black text-orange-600 tracking-widest">12010006789456</p>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText('12010006789456');
-                          alert('Đã sao chép số tài khoản');
-                        }}
-                        className="text-orange-500 hover:text-orange-600 active:scale-90 transition-all p-1"
-                      >
-                        <FileText size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Tên tài khoản</p>
-                    <p className="text-sm font-black text-gray-900 tracking-tight uppercase underline decoration-orange-200 decoration-2">VIETCAP SECURITIES - IPO {selectedIpo.stockCode}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1 italic">Nội dung chuyển khoản (bắt buộc)</p>
-                    <div className="flex gap-2">
-                      <p className="flex-1 text-[11px] font-black text-blue-600 bg-blue-50 p-4 rounded-xl border border-blue-100 leading-tight select-all">
-                        IPO_{selectedIpo.stockCode}_{selectedReg.id.slice(-6).toUpperCase()}_THANHTOAN
-                      </p>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(`IPO_${selectedIpo.stockCode}_${selectedReg.id.slice(-6).toUpperCase()}_THANHTOAN`);
-                          alert('Đã sao chép nội dung');
-                        }}
-                        className="text-blue-500 hover:text-blue-600 active:scale-90 transition-all self-center px-2"
-                      >
-                        <FileText size={20} />
-                      </button>
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1 italic">Nội dung chuyển khoản (bắt buộc)</p>
+                      <div className="flex gap-2">
+                        <p className="flex-1 text-[11px] font-black text-blue-600 bg-blue-50 p-4 rounded-xl border border-blue-100 leading-tight select-all">
+                          IPO_{selectedIpo.stockCode}_{selectedReg.id.slice(-6).toUpperCase()}_THANHTOAN
+                        </p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(`IPO_${selectedIpo.stockCode}_${selectedReg.id.slice(-6).toUpperCase()}_THANHTOAN`);
+                            alert('Đã sao chép nội dung');
+                          }}
+                          className="text-blue-500 hover:text-blue-600 active:scale-90 transition-all self-center px-2"
+                        >
+                          <FileText size={20} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              )}
   
               <div className="space-y-3 mt-auto">
                 <button 

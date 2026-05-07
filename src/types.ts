@@ -74,6 +74,7 @@ export interface Registration {
     accountName: string;
   };
   depositMethod: 'STOCK_ACCOUNT' | 'BANK_TRANSFER';
+  stockAccount?: string;
   status: RegistrationStatus;
   createdAt: string;
   signedAt?: string;
