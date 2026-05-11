@@ -20,8 +20,21 @@ import {
 import { MOCK_IPOS, APP_CONFIG } from './constants';
 import { IPOEvent, Registration, RegistrationStatus, EventType, IPODocument } from './types';
 
+const STATUS_DEFINITIONS = {
+  [RegistrationStatus.WAITING_DEPOSIT]: { label: 'Đăng ký chờ nộp cọc', color: 'bg-yellow-50 text-yellow-600', desc: 'Đã đăng ký mua nhưng chưa nộp cọc', stage: 'I. Giai đoạn nộp cọc' },
+  [RegistrationStatus.DEPOSIT_SUBMITTED]: { label: 'Đăng ký đã nộp cọc', color: 'bg-blue-50 text-blue-600', desc: 'Đã đăng ký mua và nộp cọc thành công, chờ xác nhận của DLC', stage: 'I. Giai đoạn nộp cọc' },
+  [RegistrationStatus.DEPOSIT_ERROR]: { label: 'Nộp cọc lỗi', color: 'bg-red-50 text-red-600', desc: 'Đã đăng ký mua nhưng giao dịch cọc lỗi / chưa khớp', stage: 'I. Giai đoạn nộp cọc' },
+  [RegistrationStatus.DEPOSIT_UNREGISTERED]: { label: 'Nộp cọc chưa đăng ký', color: 'bg-gray-50 text-gray-500', desc: 'Đã nộp cọc nhưng chưa có đăng ký mua hợp lệ', stage: 'I. Giai đoạn nộp cọc' },
+  [RegistrationStatus.DEPOSIT_CONFIRMED]: { label: 'DLC xác nhận cọc', color: 'bg-emerald-50 text-emerald-600', desc: 'DLC xác nhận đăng ký mua và tiền cọc hợp lệ', stage: 'I. Giai đoạn nộp cọc' },
+  [RegistrationStatus.WAITING_PAYMENT]: { label: 'Chờ nộp tiền', color: 'bg-orange-50 text-orange-600', desc: 'Đã đủ điều kiện thanh toán nhưng chưa nộp tiền', stage: 'II. Giai đoạn nộp tiền' },
+  [RegistrationStatus.PAYMENT_SUBMITTED]: { label: 'Đã nộp tiền', color: 'bg-indigo-50 text-indigo-600', desc: 'Ghi nhận nộp tiền thành công, chờ xác nhận DLC', stage: 'II. Giai đoạn nộp tiền' },
+  [RegistrationStatus.PAYMENT_ERROR]: { label: 'Nộp tiền lỗi', color: 'bg-rose-50 text-rose-600', desc: 'Có phát sinh giao dịch nhưng lỗi / chưa khớp', stage: 'II. Giai đoạn nộp tiền' },
+  [RegistrationStatus.PAYMENT_CONFIRMED]: { label: 'DLC xác nhận tiền', color: 'bg-emerald-100 text-emerald-800', desc: 'ĐLC xác nhận thanh toán hợp lệ', stage: 'II. Giai đoạn nộp tiền' },
+  [RegistrationStatus.CANCELLED]: { label: 'Đã hủy', color: 'bg-gray-200 text-gray-600', desc: 'Hồ sơ đã bị hủy', stage: 'Khác' },
+};
+
 // Components
-const DocumentCard = ({ doc }: { doc: IPODocument }) => (
+const DocumentCard = ({ doc }: { doc: IPODocument, key?: string }) => (
   <div className="bg-white border border-gray-100 rounded-lg p-2 flex items-center gap-2 hover:border-blue-200 transition-all cursor-pointer">
     <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${doc.type === 'PDF' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
       {doc.type === 'PDF' ? (
@@ -90,7 +103,7 @@ const MobileFrame = ({ children, title, onBack, rightAction }: {
   </div>
 );
 
-const IPOListItem = ({ ipo, onSelect }: { ipo: IPOEvent, onSelect: (ipo: IPOEvent) => void, key?: string }) => {
+const IPOListItem = ({ ipo, onSelect, onInfo }: { ipo: IPOEvent, onSelect: (ipo: IPOEvent) => void, onInfo: (ipo: IPOEvent) => void, key?: string }) => {
   const currentTime = new Date('2026-05-06T04:31:11Z').getTime();
   const startTime = new Date(ipo.startTime).getTime();
   const endTime = new Date(ipo.endTime).getTime();
@@ -110,9 +123,19 @@ const IPOListItem = ({ ipo, onSelect }: { ipo: IPOEvent, onSelect: (ipo: IPOEven
     <motion.div 
       whileTap={statusLabel !== "Đã kết thúc" ? { scale: 0.98 } : {}}
       onClick={() => statusLabel !== "Đã kết thúc" && onSelect(ipo)}
-      className={`bg-white border border-gray-100 p-4 rounded-2xl mb-4 shadow-sm transition-all ${statusLabel !== "Đã kết thúc" ? 'hover:border-orange-200 cursor-pointer group' : 'opacity-70 group'}`}
+      className={`bg-white border border-gray-100 p-4 rounded-2xl mb-4 shadow-sm transition-all relative ${statusLabel !== "Đã kết thúc" ? 'hover:border-orange-200 cursor-pointer group' : 'opacity-70 group'}`}
     >
-      <div className="flex justify-between items-start mb-2">
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onInfo(ipo);
+        }}
+        className="absolute top-4 right-4 p-2 bg-gray-50 rounded-full text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-all z-10"
+      >
+        <Info size={20} />
+      </button>
+
+      <div className="flex justify-between items-start mb-2 pr-8">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusColor}`}>
@@ -132,9 +155,6 @@ const IPOListItem = ({ ipo, onSelect }: { ipo: IPOEvent, onSelect: (ipo: IPOEven
             }
           </p>
         </div>
-        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${ipo.securityType === 'STOCK' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
-          {ipo.securityType}
-        </span>
       </div>
       
       <div className="grid grid-cols-2 gap-4 mt-4 py-3 border-t border-gray-50">
@@ -148,11 +168,16 @@ const IPOListItem = ({ ipo, onSelect }: { ipo: IPOEvent, onSelect: (ipo: IPOEven
         </div>
       </div>
       
-      {statusLabel !== "Đã kết thúc" && (
-        <div className="mt-3 flex items-center justify-end text-orange-500 font-bold text-xs gap-1 group-hover:translate-x-1 transition-transform">
-          {statusLabel === "Sắp diễn ra" ? "Xem chi tiết" : "Đăng ký ngay"} <ChevronRight size={16} />
-        </div>
-      )}
+      <div className="flex justify-between items-center mt-3">
+        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${ipo.securityType === 'STOCK' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+          {ipo.securityType}
+        </span>
+        {statusLabel !== "Đã kết thúc" && (
+          <div className="flex items-center text-orange-500 font-bold text-xs gap-1 group-hover:translate-x-1 transition-transform">
+            {statusLabel === "Sắp diễn ra" ? "Xem chi tiết" : "Đăng ký ngay"} <ChevronRight size={16} />
+          </div>
+        )}
+      </div>
       
       {statusLabel === "Đã kết thúc" && (
         <div className="mt-3 py-3 px-4 bg-gray-50 rounded-xl flex justify-between items-center border border-gray-100">
@@ -432,12 +457,12 @@ const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { regist
 
   const depositAmount = registration.volume * registration.price * ipo.depositRate;
   const isStockAccount = registration.depositMethod === 'STOCK_ACCOUNT';
-  const isFullyPaid = (registration.additionalPaymentRequired || 0) === 0 && registration.status === RegistrationStatus.COMPLETED;
+  const isFullyPaid = (registration.additionalPaymentRequired || 0) === 0 && (registration.status === RegistrationStatus.PAYMENT_CONFIRMED || registration.status === RegistrationStatus.PAYMENT_SUBMITTED);
 
   const steps = [
     { label: 'Đăng ký thành công', status: 'completed', desc: 'Hệ thống đã tiếp nhận hồ sơ hợp lệ' },
     { label: 'Xác nhận chữ ký số', status: 'completed', desc: 'Đã hoàn tất ký hợp đồng điện tử' },
-    { label: 'Nộp tiền cọc', status: registration.status === RegistrationStatus.DEPOSITED || isStockAccount || registration.status === RegistrationStatus.COMPLETED || registration.status === RegistrationStatus.ALLOCATED ? 'completed' : 'active', desc: isStockAccount ? 'Tự động trích nợ từ tài khoản chứng khoán' : 'Vui lòng hoàn tất chuyển khoản' },
+    { label: 'Nộp tiền cọc', status: [RegistrationStatus.DEPOSIT_SUBMITTED, RegistrationStatus.DEPOSIT_CONFIRMED, RegistrationStatus.WAITING_PAYMENT, RegistrationStatus.PAYMENT_SUBMITTED, RegistrationStatus.PAYMENT_CONFIRMED].includes(registration.status) || isStockAccount ? 'completed' : 'active', desc: isStockAccount ? 'Tự động trích nợ từ tài khoản chứng khoán' : 'Vui lòng hoàn tất chuyển khoản' },
     { label: 'Kết quả phân bổ', status: registration.allocatedVolume !== undefined ? 'completed' : 'upcoming', desc: registration.allocatedVolume !== undefined ? 'Đã có kết quả phân bổ chính thức' : 'Thông báo sau khi kết thúc đợt đăng ký' },
     { label: 'Nộp tiền mua', status: (registration.additionalPaymentRequired || 0) > 0 ? 'active' : (isFullyPaid ? 'completed' : 'upcoming'), desc: (registration.additionalPaymentRequired || 0) > 0 ? 'Quý khách vui lòng nộp thêm phần tiền chênh lệch' : 'Thanh toán dựa trên số lượng được phân bổ thực tế' },
     { label: 'Hoàn tất sở hữu', status: isFullyPaid ? 'active' : 'upcoming', desc: isFullyPaid ? 'Đang tiến hành chốt quyền sở hữu' : 'Chốt quyền và ghi nhận sở hữu' },
@@ -492,10 +517,10 @@ const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { regist
                 ? ((registration.allocatedVolume || 0) * (registration.allocatedPrice || registration.price)).toLocaleString()
                 : depositAmount.toLocaleString()} VNĐ
             </span>
-            {registration.referralCode && (
+            {registration.referralId && (
               <div className="absolute top-0 right-0 p-1">
                 <div className="bg-white/20 text-[8px] font-bold text-white px-1.5 py-0.5 rounded-bl-lg backdrop-blur-sm">
-                  Ref: {registration.referralCode}
+                  Ref: {registration.referralId}
                 </div>
               </div>
             )}
@@ -591,15 +616,140 @@ const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { regist
   );
 };
 
+const CompanyInfoScreen = ({ ipo, onBack, onRegister }: { ipo: IPOEvent, onBack: () => void, onRegister: () => void }) => {
+  const [expandedQuarterly, setExpandedQuarterly] = useState(true);
+  const [expandedMonthly, setExpandedMonthly] = useState(true);
+
+  return (
+    <div className="py-6 flex flex-col h-full overflow-y-auto">
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-4">
+           <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
+             <Info size={28} />
+           </div>
+           <div>
+             <h2 className="text-xl font-black text-gray-900 leading-tight uppercase">{ipo.issuerName}</h2>
+             <span className="text-xs font-bold text-gray-400 tracking-widest">MÃ CHỨNG KHOÁN: {ipo.stockCode}</span>
+           </div>
+        </div>
+        <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
+          "{ipo.description}"
+        </p>
+      </div>
+
+      {ipo.financialHighlights && (
+        <div className="mb-8">
+          <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+            Chỉ số tài chính năm {ipo.financialHighlights.year}
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Doanh thu', value: ipo.financialHighlights.revenue, color: 'text-blue-600' },
+              { label: 'Lợi nhuận', value: ipo.financialHighlights.profit, color: 'text-emerald-600' },
+              { label: 'Tổng tài sản', value: ipo.financialHighlights.assets, color: 'text-orange-600' },
+              { label: 'Vốn CSH', value: ipo.financialHighlights.equity, color: 'text-indigo-600' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className={`text-lg font-black ${stat.color}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4 mb-8">
+        <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+          <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+          Báo cáo & Tài liệu
+        </h3>
+
+        {ipo.quarterlyDocuments && (
+          <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+            <button 
+              onClick={() => setExpandedQuarterly(!expandedQuarterly)}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-wider">{ipo.quarterlyDocuments.title}</h4>
+              {expandedQuarterly ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+            </button>
+            <AnimatePresence>
+              {expandedQuarterly && (
+                <motion.div 
+                  initial={{ height: 0 }}
+                  animate={{ height: 'auto' }}
+                  exit={{ height: 0 }}
+                  className="overflow-hidden bg-gray-50/30 px-4 pb-4"
+                >
+                  <div className="grid grid-cols-1 gap-2 pt-2">
+                    {ipo.quarterlyDocuments.items.map(doc => (
+                      <DocumentCard key={doc.id} doc={doc} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {ipo.monthlyDocuments && (
+          <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+            <button 
+              onClick={() => setExpandedMonthly(!expandedMonthly)}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-wider">{ipo.monthlyDocuments.title}</h4>
+              {expandedMonthly ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+            </button>
+            <AnimatePresence>
+              {expandedMonthly && (
+                <motion.div 
+                  initial={{ height: 0 }}
+                  animate={{ height: 'auto' }}
+                  exit={{ height: 0 }}
+                  className="overflow-hidden bg-gray-50/30 px-4 pb-4"
+                >
+                  <div className="grid grid-cols-1 gap-2 pt-2">
+                    {ipo.monthlyDocuments.items.map(doc => (
+                      <DocumentCard key={doc.id} doc={doc} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto flex gap-3">
+        <button 
+          onClick={onBack}
+          className="flex-1 bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 active:scale-95 transition-all text-xs uppercase tracking-widest"
+        >
+          Quay lại
+        </button>
+        <button 
+          onClick={onRegister}
+          className="flex-[2] bg-orange-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-orange-100 hover:bg-orange-700 active:scale-95 transition-all text-xs uppercase tracking-widest"
+        >
+          Tiến hành đăng ký ngay
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
-  const [currentStep, setCurrentStep] = useState<'home' | 'details' | 'form' | 'review' | 'sign' | 'payment' | 'success' | 'profile' | 'allocation_details' | 'remaining_payment'>('home');
+  const [currentStep, setCurrentStep] = useState<'home' | 'details' | 'form' | 'review' | 'sign' | 'payment' | 'success' | 'profile' | 'allocation_details' | 'remaining_payment' | 'company_info'>('home');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [selectedIpo, setSelectedIpo] = useState<IPOEvent | null>(null);
+  const [infoIpo, setInfoIpo] = useState<IPOEvent | null>(null);
   const [formData, setFormData] = useState<Partial<Registration>>({
     volume: 100,
     price: 32000,
     depositMethod: 'STOCK_ACCOUNT',
-    stockAccount: '001C123456 - NGUYÊN VĂN A',
+    stockAccount: '0123456789',
     refundBankInfo: {
       bankName: '',
       accountNumber: '',
@@ -613,7 +763,7 @@ export default function App() {
       volume: 5000,
       price: 32000,
       depositMethod: 'STOCK_ACCOUNT',
-      status: RegistrationStatus.COMPLETED,
+      status: RegistrationStatus.PAYMENT_CONFIRMED,
       createdAt: '2026-04-15T08:00:00Z',
       allocatedVolume: 4200,
       allocatedPrice: 32000,
@@ -626,7 +776,7 @@ export default function App() {
       volume: 10000,
       price: 15500,
       depositMethod: 'BANK_TRANSFER',
-      status: RegistrationStatus.ALLOCATED,
+      status: RegistrationStatus.PAYMENT_CONFIRMED,
       createdAt: '2026-04-20T09:00:00Z',
       allocatedVolume: 0,
       allocatedPrice: 0,
@@ -639,12 +789,39 @@ export default function App() {
       volume: 1000,
       price: 32000,
       depositMethod: 'BANK_TRANSFER',
-      status: RegistrationStatus.ALLOCATED,
+      status: RegistrationStatus.WAITING_PAYMENT,
       createdAt: '2026-04-25T10:00:00Z',
       allocatedVolume: 1000,
       allocatedPrice: 32000,
       totalPaid: 3200000,
       additionalPaymentRequired: 28800000,
+    },
+    {
+      id: 'reg-004',
+      eventId: 'ipo-002',
+      volume: 2000,
+      price: 10000,
+      depositMethod: 'STOCK_ACCOUNT',
+      status: RegistrationStatus.WAITING_DEPOSIT,
+      createdAt: '2026-05-01T09:30:00Z',
+    },
+    {
+      id: 'reg-005',
+      eventId: 'ipo-004',
+      volume: 5000,
+      price: 35000,
+      depositMethod: 'BANK_TRANSFER',
+      status: RegistrationStatus.DEPOSIT_SUBMITTED,
+      createdAt: '2026-05-02T14:20:00Z',
+    },
+    {
+      id: 'reg-006',
+      eventId: 'ipo-005',
+      volume: 3000,
+      price: 25000,
+      depositMethod: 'STOCK_ACCOUNT',
+      status: RegistrationStatus.DEPOSIT_CONFIRMED,
+      createdAt: '2026-05-03T11:00:00Z',
     }
   ]);
   const [profileSearch, setProfileSearch] = useState('');
@@ -653,6 +830,7 @@ export default function App() {
   const [expandedMonthly, setExpandedMonthly] = useState(false);
   const [expandedRefundInfo, setExpandedRefundInfo] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'qr' | 'manual'>('qr');
+  const [showStatusHelp, setShowStatusHelp] = useState(false);
 
   const handleSelectIpo = (ipo: IPOEvent) => {
     setSelectedIpo(ipo);
@@ -660,7 +838,7 @@ export default function App() {
        volume: ipo.minVolume,
        price: ipo.minPrice,
        depositMethod: 'STOCK_ACCOUNT',
-       stockAccount: '001C123456 - NGUYÊN VĂN A',
+       stockAccount: '0123456789',
        refundBankInfo: {
          bankName: '',
          accountNumber: '',
@@ -678,7 +856,7 @@ export default function App() {
   const goToReview = () => setCurrentStep('review');
   const goToSign = () => setCurrentStep('sign');
   
-  const handleSign = () => {
+    const handleSign = () => {
     if (formData.depositMethod === 'STOCK_ACCOUNT') {
       const newReg: Registration = {
         id: Math.random().toString(36).substr(2, 9),
@@ -686,7 +864,7 @@ export default function App() {
         volume: formData.volume!,
         price: formData.price!,
         depositMethod: formData.depositMethod!,
-        status: RegistrationStatus.PENDING,
+        status: RegistrationStatus.WAITING_DEPOSIT,
         createdAt: new Date().toISOString(),
         signedAt: new Date().toISOString(),
       };
@@ -704,13 +882,18 @@ export default function App() {
       volume: formData.volume!,
       price: formData.price!,
       depositMethod: formData.depositMethod!,
-      status: RegistrationStatus.DEPOSITED,
+      status: RegistrationStatus.DEPOSIT_SUBMITTED,
       createdAt: new Date().toISOString(),
       signedAt: new Date().toISOString(),
       depositedAt: new Date().toISOString(),
     };
     setRegistrations([...registrations, newReg]);
     setCurrentStep('success');
+  };
+
+  const handleInfoOpen = (ipo: IPOEvent) => {
+    setInfoIpo(ipo);
+    setCurrentStep('company_info');
   };
 
   const renderContent = () => {
@@ -720,36 +903,192 @@ export default function App() {
         
         return (
           <div className="py-2">
+             <div className="flex justify-between items-center mb-6">
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Chào mừng bạn</p>
+                  <h2 className="text-xl font-black text-gray-900 uppercase">IPO Catalog</h2>
+                </div>
+                <button 
+                  onClick={() => setShowStatusHelp(!showStatusHelp)}
+                  className="w-10 h-10 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center border border-orange-100 hover:bg-orange-100 transition-all"
+                  title="Giải thích trạng thái"
+                >
+                  <Info size={20} />
+                </button>
+             </div>
+
+             <AnimatePresence>
+                {showStatusHelp && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden mb-6"
+                  >
+                    <div className="bg-gray-900 text-white rounded-3xl p-6 overflow-hidden relative border border-white/5 shadow-2xl">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/10 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-3 border-b border-white/10 pb-4">
+                        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                          <Info size={18} />
+                        </div>
+                        Ý nghĩa các trạng thái
+                      </h3>
+                      
+                      <div className="space-y-8">
+                        <div>
+                          <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <div className="w-1 h-3 bg-orange-500 rounded-full" />
+                             I. Giai đoạn nộp cọc
+                          </h4>
+                          <div className="space-y-4">
+                             {Object.entries(STATUS_DEFINITIONS).filter(([_, def]) => def.stage === 'I. Giai đoạn nộp cọc').map(([key, def]) => (
+                               <div key={key} className="flex gap-3">
+                                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${def.color.split(' ')[0]}`} />
+                                  <div className="flex-1">
+                                    <p className="text-[11px] font-black uppercase tracking-tight leading-tight mb-1">{def.label}</p>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase opacity-80">{def.desc}</p>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <div className="w-1 h-3 bg-blue-500 rounded-full" />
+                             II. Giai đoạn nộp tiền
+                          </h4>
+                          <div className="space-y-4">
+                             {Object.entries(STATUS_DEFINITIONS).filter(([_, def]) => def.stage === 'II. Giai đoạn nộp tiền').map(([key, def]) => (
+                               <div key={key} className="flex gap-3">
+                                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${def.color.split(' ')[0]}`} />
+                                  <div className="flex-1">
+                                    <p className="text-[11px] font-black uppercase tracking-tight leading-tight mb-1">{def.label}</p>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase opacity-80">{def.desc}</p>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setShowStatusHelp(false)}
+                        className="w-full mt-8 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all font-mono"
+                      >
+                        Đã hiểu
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+             </AnimatePresence>
+
              {pendingPaymentCount > 0 && (
-               <motion.div 
-                 initial={{ opacity: 0, y: 20 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 onClick={() => {
-                   setActiveTab('pending_payment');
-                   setCurrentStep('profile');
-                 }}
-                 className="mb-6 bg-gradient-to-r from-orange-600 to-orange-500 p-4 rounded-3xl shadow-lg shadow-orange-100 flex items-center justify-between cursor-pointer group hover:scale-[1.02] transition-all"
-               >
-                 <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white backdrop-blur-md">
-                     <AlertCircle size={20} />
-                   </div>
-                   <div>
-                     <p className="text-[10px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">Cảnh báo thanh toán</p>
-                     <p className="text-sm font-black text-white leading-tight">Bạn có {pendingPaymentCount} lệnh chờ nộp tiền</p>
-                   </div>
+               <div className="mb-8">
+                 <div className="flex items-center justify-between mb-4">
+                   <h2 className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                     <AlertCircle size={14} />
+                     Hành động cần xử lý ({pendingPaymentCount})
+                   </h2>
                  </div>
-                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white group-hover:bg-white/20 transition-colors">
-                   <ChevronRight size={20} />
+                 <div className="space-y-3">
+                   {registrations.filter(r => r.status === RegistrationStatus.WAITING_PAYMENT).map(reg => {
+                     const ipo = MOCK_IPOS.find(i => i.id === reg.eventId);
+                     return (
+                       <motion.div 
+                         key={reg.id}
+                         whileTap={{ scale: 0.98 }}
+                         onClick={() => {
+                           setSelectedReg(reg);
+                           setSelectedIpo(ipo!);
+                           setCurrentStep('allocation_details');
+                         }}
+                         className="bg-orange-600 rounded-3xl p-4 shadow-lg shadow-orange-100 flex items-center justify-between cursor-pointer group border border-orange-500"
+                       >
+                         <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white backdrop-blur-md">
+                             <QrCode size={20} />
+                           </div>
+                           <div>
+                             <p className="text-[10px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">Chờ nộp tiền mua</p>
+                             <p className="text-sm font-black text-white leading-tight">{ipo?.stockCode} - {ipo?.issuerName}</p>
+                           </div>
+                         </div>
+                         <div className="bg-white text-orange-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-50 transition-colors">
+                           Nộp ngay
+                         </div>
+                       </motion.div>
+                     );
+                   })}
                  </div>
-               </motion.div>
+               </div>
+             )}
+
+             {registrations.filter(r => r.status === RegistrationStatus.WAITING_DEPOSIT).length > 0 && (
+               <div className="mb-8">
+                 <div className="flex items-center justify-between mb-4">
+                   <h2 className="text-[10px] font-black text-yellow-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                     <AlertCircle size={14} />
+                     Chờ nộp cọc ({registrations.filter(r => r.status === RegistrationStatus.WAITING_DEPOSIT).length})
+                   </h2>
+                 </div>
+                 <div className="space-y-3">
+                   {registrations.filter(r => r.status === RegistrationStatus.WAITING_DEPOSIT).map(reg => {
+                     const ipo = MOCK_IPOS.find(i => i.id === reg.eventId);
+                     return (
+                       <motion.div 
+                         key={reg.id}
+                         whileTap={{ scale: 0.98 }}
+                         onClick={() => {
+                           setSelectedReg(reg);
+                           setSelectedIpo(ipo!);
+                           setCurrentStep('success'); // Show progress/details
+                         }}
+                         className="bg-white border-2 border-yellow-400 rounded-3xl p-4 shadow-sm flex items-center justify-between cursor-pointer group"
+                       >
+                         <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-yellow-50 rounded-2xl flex items-center justify-center text-yellow-600">
+                             <History size={20} />
+                           </div>
+                           <div>
+                             <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest leading-none mb-1">Chờ nộp tiền cọc</p>
+                             <p className="text-sm font-black text-gray-900 leading-tight">{ipo?.stockCode} - {ipo?.issuerName}</p>
+                           </div>
+                         </div>
+                         <div className="text-yellow-600 p-1 group-hover:translate-x-1 transition-transform">
+                           <ChevronRight size={20} />
+                         </div>
+                       </motion.div>
+                     );
+                   })}
+                 </div>
+               </div>
              )}
              
-             <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Các sự kiện IPO hiện có</h2>
-             {MOCK_IPOS.map(ipo => (
-               <IPOListItem key={ipo.id} ipo={ipo} onSelect={handleSelectIpo} />
-             ))}
+             <div className="flex items-center justify-between mb-4">
+               <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Các sự kiện IPO hiện có</h2>
+               <div className="flex gap-1">
+                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Live</span>
+               </div>
+             </div>
+
+             <div className="space-y-4">
+               {MOCK_IPOS.map(ipo => (
+                 <IPOListItem key={ipo.id} ipo={ipo} onSelect={handleSelectIpo} onInfo={handleInfoOpen} />
+               ))}
+             </div>
           </div>
+        );
+
+      case 'company_info':
+        return (
+          <CompanyInfoScreen 
+            ipo={infoIpo!} 
+            onBack={() => setCurrentStep('home')} 
+            onRegister={() => {
+              handleSelectIpo(infoIpo!);
+            }} 
+          />
         );
 
       case 'profile':
@@ -763,12 +1102,100 @@ export default function App() {
           );
         });
 
-        const displayRegs = activeTab === 'all' ? filteredRegs : filteredRegs.filter(r => (r.additionalPaymentRequired || 0) > 0);
+        const sortedRegs = [...filteredRegs].sort((a, b) => {
+          // Prioritize WAITING_PAYMENT
+          if (a.status === RegistrationStatus.WAITING_PAYMENT && b.status !== RegistrationStatus.WAITING_PAYMENT) return -1;
+          if (a.status !== RegistrationStatus.WAITING_PAYMENT && b.status === RegistrationStatus.WAITING_PAYMENT) return 1;
+          
+          // Secondary prioritize WAITING_DEPOSIT
+          if (a.status === RegistrationStatus.WAITING_DEPOSIT && b.status !== RegistrationStatus.WAITING_DEPOSIT) return -1;
+          if (a.status !== RegistrationStatus.WAITING_DEPOSIT && b.status === RegistrationStatus.WAITING_DEPOSIT) return 1;
+
+          // Default sort by createdAt
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        const displayRegs = activeTab === 'all' ? sortedRegs : sortedRegs.filter(r => (r.additionalPaymentRequired || 0) > 0);
 
         return (
           <div className="py-4 h-full flex flex-col">
             <div className="mb-6">
-              <h2 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-4 px-1">Danh sách sổ lệnh IPO</h2>
+              <div className="flex justify-between items-center mb-4 px-1">
+                <h2 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Danh sách sổ lệnh IPO</h2>
+                <button 
+                  onClick={() => setShowStatusHelp(!showStatusHelp)}
+                  className="text-[10px] font-black text-orange-600 uppercase flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 hover:bg-orange-100 transition-all"
+                >
+                  <Info size={14} />
+                  Giải thích trạng thái
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {showStatusHelp && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden mb-6"
+                  >
+                    <div className="bg-gray-900 text-white rounded-3xl p-6 overflow-hidden relative">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/10 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-3 border-b border-white/10 pb-4">
+                        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                          <Info size={18} />
+                        </div>
+                        Ý nghĩa các trạng thái
+                      </h3>
+                      
+                      <div className="space-y-8">
+                        <div>
+                          <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <div className="w-1 h-3 bg-orange-500 rounded-full" />
+                             I. Giai đoạn nộp cọc
+                          </h4>
+                          <div className="space-y-4">
+                             {Object.entries(STATUS_DEFINITIONS).filter(([_, def]) => def.stage === 'I. Giai đoạn nộp cọc').map(([key, def]) => (
+                               <div key={key} className="flex gap-3">
+                                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${def.color.split(' ')[0]}`} />
+                                  <div className="flex-1">
+                                    <p className="text-[11px] font-black uppercase tracking-tight leading-tight mb-1">{def.label}</p>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase opacity-80">{def.desc}</p>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <div className="w-1 h-3 bg-blue-500 rounded-full" />
+                             II. Giai đoạn nộp tiền
+                          </h4>
+                          <div className="space-y-4">
+                             {Object.entries(STATUS_DEFINITIONS).filter(([_, def]) => def.stage === 'II. Giai đoạn nộp tiền').map(([key, def]) => (
+                               <div key={key} className="flex gap-3">
+                                  <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${def.color.split(' ')[0]}`} />
+                                  <div className="flex-1">
+                                    <p className="text-[11px] font-black uppercase tracking-tight leading-tight mb-1">{def.label}</p>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase opacity-80">{def.desc}</p>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setShowStatusHelp(false)}
+                        className="w-full mt-8 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all"
+                      >
+                        Đóng giải thích
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="flex gap-2 mb-4">
                 <button 
                   onClick={() => setActiveTab('all')}
@@ -829,9 +1256,9 @@ export default function App() {
                                     {ipo?.stockCode}
                                   </span>
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${
-                                    reg.status === RegistrationStatus.COMPLETED ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+                                    STATUS_DEFINITIONS[reg.status]?.color || 'bg-gray-50 text-gray-400'
                                   }`}>
-                                    {reg.status}
+                                    {STATUS_DEFINITIONS[reg.status]?.label || reg.status}
                                   </span>
                                </div>
                                <h4 className="font-black text-gray-900 leading-tight uppercase tracking-tight">{ipo?.issuerName}</h4>
@@ -908,7 +1335,7 @@ export default function App() {
                                 onClick={() => {
                                   const updatedReg: Registration = {
                                     ...reg,
-                                    status: RegistrationStatus.ALLOCATED,
+                                    status: RegistrationStatus.WAITING_PAYMENT,
                                     allocatedVolume: Math.floor(reg.volume * 0.8),
                                     allocatedPrice: reg.price,
                                     totalPaid: reg.volume * reg.price * 0.1,
@@ -1048,23 +1475,53 @@ export default function App() {
             <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6 px-1 text-center">Thông tin đăng ký</h2>
             
             <div className="space-y-5 mb-8 flex-1">
-              {/* Security Account Selection */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Tài khoản chứng khoán</label>
-                <div className="relative group">
-                  <select 
-                    value={formData.stockAccount}
-                    onChange={(e) => setFormData({...formData, stockAccount: e.target.value})}
-                    className="w-full bg-blue-50/50 border border-blue-100 rounded-xl px-4 py-4 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Hình thức thanh toán cọc</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setFormData({...formData, depositMethod: 'STOCK_ACCOUNT'})}
+                    className={`p-3 rounded-xl border-2 text-[10px] font-bold flex flex-col items-center gap-2 transition-all ${
+                      formData.depositMethod === 'STOCK_ACCOUNT' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 text-gray-400'
+                    }`}
                   >
-                    <option value="001C123456 - NGUYÊN VĂN A">001C123456 - NGUYÊN VĂN A</option>
-                    <option value="001C654321 - NGUYÊN VĂN B">001C654321 - NGUYÊN VĂN B</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <ChevronDown size={20} />
-                  </div>
+                    TK Chứng khoán
+                  </button>
+                  <button 
+                    onClick={() => setFormData({...formData, depositMethod: 'BANK_TRANSFER'})}
+                    className={`p-3 rounded-xl border-2 text-[10px] font-bold flex flex-col items-center gap-2 transition-all ${
+                      formData.depositMethod === 'BANK_TRANSFER' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 text-gray-400'
+                    }`}
+                  >
+                    Chuyển khoản NH
+                  </button>
                 </div>
               </div>
+
+              {/* Security Account Selection */}
+              {formData.depositMethod === 'STOCK_ACCOUNT' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-2"
+                >
+                  <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Số tài khoản chứng khoán</label>
+                  <div className="relative group">
+                    <select 
+                      value={formData.stockAccount}
+                      onChange={(e) => setFormData({...formData, stockAccount: e.target.value})}
+                      className="w-full bg-blue-50/50 border border-blue-100 rounded-xl px-4 py-4 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="0123456789">0123456789</option>
+                      <option value="9876543210">9876543210</option>
+                      <option value="1122334455">1122334455</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      <ChevronDown size={20} />
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-gray-400 font-medium">Chọn tài khoản chứng khoán 10 số của bạn để thực hiện phân bổ</p>
+                </motion.div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Số lượng đăng ký</label>
@@ -1117,28 +1574,6 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-gray-500 uppercase">Tiền cọc cần nộp ({(selectedIpo.depositRate * 100).toFixed(0)}%)</span>
                   <span className="text-lg font-bold text-orange-600">{((formData.volume || 0) * (formData.price || 0) * selectedIpo.depositRate).toLocaleString()} đ</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Hình thức thanh toán cọc</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setFormData({...formData, depositMethod: 'STOCK_ACCOUNT'})}
-                    className={`p-3 rounded-xl border-2 text-[10px] font-bold flex flex-col items-center gap-2 transition-all ${
-                      formData.depositMethod === 'STOCK_ACCOUNT' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 text-gray-400'
-                    }`}
-                  >
-                    TK Chứng khoán
-                  </button>
-                  <button 
-                    onClick={() => setFormData({...formData, depositMethod: 'BANK_TRANSFER'})}
-                    className={`p-3 rounded-xl border-2 text-[10px] font-bold flex flex-col items-center gap-2 transition-all ${
-                      formData.depositMethod === 'BANK_TRANSFER' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 text-gray-400'
-                    }`}
-                  >
-                    Chuyển khoản NH
-                  </button>
                 </div>
               </div>
 
@@ -1226,7 +1661,7 @@ export default function App() {
             <div className="mt-auto pt-6">
               <button 
                 onClick={goToReview}
-                disabled={!formData.volume || !formData.price || !formData.refundBankInfo?.bankName || !formData.refundBankInfo?.accountNumber || !formData.refundBankInfo?.accountName}
+                disabled={!formData.volume || !formData.price || (formData.depositMethod === 'STOCK_ACCOUNT' && formData.stockAccount?.length !== 10) || !formData.refundBankInfo?.bankName || !formData.refundBankInfo?.accountNumber || !formData.refundBankInfo?.accountName}
                 className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-orange-100 hover:bg-orange-700 active:scale-95 transition-all text-lg disabled:opacity-50 disabled:bg-gray-300 disabled:shadow-none"
               >
                 Tiếp tục
@@ -1257,10 +1692,12 @@ export default function App() {
                   Thông tin đăng ký
                 </h4>
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">TK Chứng khoán:</span>
-                    <span className="font-bold text-gray-900">{formData.stockAccount}</span>
-                  </div>
+                  {formData.depositMethod === 'STOCK_ACCOUNT' && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">TK phân bổ CK:</span>
+                      <span className="font-bold text-gray-900">{formData.stockAccount}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Mã Chứng Khoán:</span>
                     <span className="font-bold text-gray-900">{selectedIpo?.stockCode}</span>
@@ -1609,7 +2046,7 @@ export default function App() {
               <div className="space-y-3 mt-auto">
                 <button 
                   onClick={() => {
-                    const updatedReg: Registration = { ...selectedReg, additionalPaymentRequired: 0, status: RegistrationStatus.COMPLETED };
+                    const updatedReg: Registration = { ...selectedReg, additionalPaymentRequired: 0, status: RegistrationStatus.PAYMENT_SUBMITTED };
                     setRegistrations(registrations.map(r => r.id === selectedReg.id ? updatedReg : r));
                     setSelectedReg(updatedReg);
                     setCurrentStep('success');
@@ -1644,6 +2081,18 @@ export default function App() {
           />
         );
 
+      case 'company_info':
+        if (!infoIpo) return null;
+        return (
+          <CompanyInfoScreen 
+            ipo={infoIpo} 
+            onBack={() => setCurrentStep('home')} 
+            onRegister={() => {
+              handleSelectIpo(infoIpo);
+            }} 
+          />
+        );
+
       default:
         return null;
     }
@@ -1654,6 +2103,7 @@ export default function App() {
       case 'home': return 'Danh mục IPO';
       case 'profile': return 'Danh sách sổ lệnh IPO';
       case 'details': return 'Thông tin IPO';
+      case 'company_info': return 'Hồ sơ doanh nghiệp';
       case 'form': return 'Đăng ký mua';
       case 'review': return 'Xác nhận';
       case 'allocation_details': return 'Kết quả phân bổ';
@@ -1667,6 +2117,7 @@ export default function App() {
 
   const handleBack = () => {
     if (currentStep === 'details') setCurrentStep('home');
+    if (currentStep === 'company_info') setCurrentStep('home');
     if (currentStep === 'form') setCurrentStep('details');
     if (currentStep === 'review') setCurrentStep('form');
     if (currentStep === 'sign') setCurrentStep('review');

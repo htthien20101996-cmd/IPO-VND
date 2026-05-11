@@ -24,6 +24,13 @@ export const MOCK_IPOS: IPOEvent[] = [
     paymentEndTime: '2026-05-20T17:00:00Z',
     refundTime: '2026-05-25',
     description: 'Đợt chào bán cổ phiếu lần đầu ra công chúng của Vietcap, đơn vị hàng đầu trong lĩnh vực dịch vụ tài chính.',
+    financialHighlights: {
+      revenue: '1,200 Tỷ',
+      profit: '350 Tỷ',
+      assets: '8,500 Tỷ',
+      equity: '4,200 Tỷ',
+      year: '2025'
+    },
     quarterlyDocuments: {
       title: 'CUỘC HỌP KẾT QUẢ KINH DOANH HÀNG QUÝ',
       items: [
@@ -63,6 +70,13 @@ export const MOCK_IPOS: IPOEvent[] = [
     paymentEndTime: '2026-05-25T16:30:00Z',
     refundTime: '2026-05-30',
     description: 'Trái phiếu doanh nghiệp với lãi suất hấp dẫn 12%/năm, kỳ hạn 2 năm.',
+    financialHighlights: {
+      revenue: '2,500 Tỷ',
+      profit: '120 Tỷ',
+      assets: '15,000 Tỷ',
+      equity: '3,000 Tỷ',
+      year: '2025'
+    },
   },
   {
     id: 'ipo-003',
@@ -87,6 +101,13 @@ export const MOCK_IPOS: IPOEvent[] = [
     paymentEndTime: '2026-04-20T17:00:00Z',
     refundTime: '2026-04-25',
     description: 'Công ty dẫn đầu về giải pháp năng lượng sạch.',
+    financialHighlights: {
+      revenue: '800 Tỷ',
+      profit: '90 Tỷ',
+      assets: '2,100 Tỷ',
+      equity: '1,100 Tỷ',
+      year: '2025'
+    },
   }
 ];
 

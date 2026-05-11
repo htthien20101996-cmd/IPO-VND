@@ -11,12 +11,15 @@ export enum EventType {
 }
 
 export enum RegistrationStatus {
-  PENDING = 'PENDING',
-  SIGNED = 'SIGNED',
-  DEPOSITED = 'DEPOSITED',
-  ALLOCATED = 'ALLOCATED',
-  PAID = 'PAID',
-  COMPLETED = 'COMPLETED',
+  WAITING_DEPOSIT = 'WAITING_DEPOSIT',     // Đăng ký chờ nộp cọc
+  DEPOSIT_SUBMITTED = 'DEPOSIT_SUBMITTED', // Đăng ký đã nộp cọc
+  DEPOSIT_ERROR = 'DEPOSIT_ERROR',         // Nộp cọc lỗi
+  DEPOSIT_UNREGISTERED = 'DEPOSIT_UNREGISTERED', // Nộp cọc chưa đăng ký
+  DEPOSIT_CONFIRMED = 'DEPOSIT_CONFIRMED', // DLC xác nhận cọc
+  WAITING_PAYMENT = 'WAITING_PAYMENT',     // Chờ nộp tiền
+  PAYMENT_SUBMITTED = 'PAYMENT_SUBMITTED', // Đã nộp tiền
+  PAYMENT_ERROR = 'PAYMENT_ERROR',         // Nộp tiền lỗi
+  PAYMENT_CONFIRMED = 'PAYMENT_CONFIRMED', // DLC xác nhận tiền
   CANCELLED = 'CANCELLED',
 }
 
@@ -43,6 +46,13 @@ export interface IPOEvent {
   paymentEndTime: string;
   refundTime: string;
   description: string;
+  financialHighlights?: {
+    revenue: string;
+    profit: string;
+    assets: string;
+    equity: string;
+    year: string;
+  };
   quarterlyDocuments?: {
     title: string;
     items: IPODocument[];
