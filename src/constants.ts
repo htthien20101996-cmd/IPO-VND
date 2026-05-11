@@ -117,3 +117,9 @@ export const APP_CONFIG = {
   BANK_ACCOUNT: '12310000987654',
   ACCOUNT_HOLDER: 'CTY CP CHUNG KHOAN TRUNG UONG',
 };
+
+export const MOCK_BANK_ACCOUNTS = [
+  { bankName: 'BIDV', accountNumber: '12310000987654', accountName: 'NGUYEN VAN A' },
+  { bankName: 'Vietcombank', accountNumber: '0011004321567', accountName: 'NGUYEN VAN A' },
+  { bankName: 'Techcombank', accountNumber: '19034567891011', accountName: 'NGUYEN VAN A' },
+];

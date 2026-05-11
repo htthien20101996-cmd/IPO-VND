@@ -14,11 +14,21 @@ import {
   Bell,
   PlayCircle,
   FileText,
+  CreditCard,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { MOCK_IPOS, APP_CONFIG } from './constants';
+import { MOCK_IPOS, APP_CONFIG, MOCK_BANK_ACCOUNTS } from './constants';
 import { IPOEvent, Registration, RegistrationStatus, EventType, IPODocument } from './types';
+import { fetchStockMarketData, MarketData } from './services/geminiService';
+import { 
+  TrendingUp, 
+  BarChart3, 
+  Activity, 
+  Globe, 
+  ExternalLink,
+  Loader2
+} from 'lucide-react';
 
 const STATUS_DEFINITIONS = {
   [RegistrationStatus.WAITING_DEPOSIT]: { label: 'Đăng ký chờ nộp cọc', color: 'bg-yellow-50 text-yellow-600', desc: 'Đã đăng ký mua nhưng chưa nộp cọc', stage: 'I. Giai đoạn nộp cọc' },
@@ -450,14 +460,17 @@ const AllocationDetailsScreen = ({
   );
 };
 
-const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { registration: Registration, ipo: IPOEvent, onDone: () => void, onViewAllocation: () => void }) => {
+const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation, onUpdateMethod }: { registration: Registration, ipo: IPOEvent, onDone: () => void, onViewAllocation: () => void, onUpdateMethod: (id: string, method: 'STOCK_ACCOUNT' | 'BANK_TRANSFER') => void }) => {
   const [isProgressExpanded, setIsProgressExpanded] = useState(false);
+  const [showQR, setShowQR] = useState(registration.depositMethod === 'BANK_TRANSFER');
   
   if (!registration || !ipo) return null;
 
   const depositAmount = registration.volume * registration.price * ipo.depositRate;
   const isStockAccount = registration.depositMethod === 'STOCK_ACCOUNT';
   const isFullyPaid = (registration.additionalPaymentRequired || 0) === 0 && (registration.status === RegistrationStatus.PAYMENT_CONFIRMED || registration.status === RegistrationStatus.PAYMENT_SUBMITTED);
+
+  const canSwitchMethod = !isFullyPaid && [RegistrationStatus.WAITING_DEPOSIT, RegistrationStatus.DEPOSIT_SUBMITTED, RegistrationStatus.DEPOSIT_ERROR].includes(registration.status);
 
   const steps = [
     { label: 'Đăng ký thành công', status: 'completed', desc: 'Hệ thống đã tiếp nhận hồ sơ hợp lệ' },
@@ -527,6 +540,82 @@ const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { regist
           </div>
         </div>
       </div>
+
+      {!isFullyPaid && (
+        <div className="mb-8">
+          {isStockAccount ? (
+            <div className="bg-blue-50 border border-blue-100 rounded-3xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-gray-900 uppercase">Trích nợ tự động</h4>
+                  <p className="text-[9px] text-gray-500 font-medium leading-none mt-1 uppercase tracking-wider">Tài khoản: {registration.stockAccount}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-600 leading-relaxed mb-4">
+                Hệ thống sẽ tự động trích nợ {depositAmount.toLocaleString()} VNĐ từ tài khoản chứng khoán của bạn. Vui lòng đảm bảo số dư tiền mặt trước thời điểm xét duyệt.
+              </p>
+              {canSwitchMethod && (
+                <button 
+                  onClick={() => onUpdateMethod(registration.id, 'BANK_TRANSFER')}
+                  className="w-full py-3 bg-white border border-blue-200 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <QrCode size={14} />
+                  Tôi muốn đổi sang chuyển khoản QR
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border-2 border-orange-500 rounded-3xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Nộp tiền qua QR/Chuyển khoản</h4>
+                <div className="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                  <QrCode size={18} />
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-center mb-6">
+                <div className="bg-white p-3 rounded-2xl shadow-xl ring-4 ring-orange-50 mb-4">
+                  <QrCode size={140} className="text-gray-900" />
+                </div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center px-2">
+                  Quét mã để nộp <span className="text-orange-600">{depositAmount.toLocaleString()} đ</span> đặt cọc
+                </p>
+              </div>
+
+              <div className="space-y-3 bg-gray-50 p-4 rounded-2xl text-[10px] mb-6">
+                <div className="flex justify-between">
+                  <span className="text-gray-400 uppercase font-black">Ngân hàng:</span>
+                  <span className="font-black text-gray-900">{APP_CONFIG.BANK_NAME}</span>
+                </div>
+                <div className="flex justify-between group cursor-pointer" onClick={() => {navigator.clipboard.writeText(APP_CONFIG.BANK_ACCOUNT); alert('Đã copy số tài khoản')}}>
+                  <span className="text-gray-400 uppercase font-black">Số tài khoản:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-black text-gray-900">{APP_CONFIG.BANK_ACCOUNT}</span>
+                    <FileText size={12} className="text-orange-500" />
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400 uppercase font-black">Chủ TK:</span>
+                  <span className="font-black text-gray-900 uppercase">{APP_CONFIG.ACCOUNT_HOLDER}</span>
+                </div>
+              </div>
+
+              {canSwitchMethod && (
+                <button 
+                  onClick={() => onUpdateMethod(registration.id, 'STOCK_ACCOUNT')}
+                  className="w-full py-3 bg-white border border-blue-200 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <CreditCard size={14} />
+                  Dùng tiền trong TK chứng khoán
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-gray-50 rounded-3xl overflow-hidden border border-gray-100 shadow-sm transition-all mb-8">
         <button 
@@ -619,6 +708,15 @@ const SuccessScreen = ({ registration, ipo, onDone, onViewAllocation }: { regist
 const CompanyInfoScreen = ({ ipo, onBack, onRegister }: { ipo: IPOEvent, onBack: () => void, onRegister: () => void }) => {
   const [expandedQuarterly, setExpandedQuarterly] = useState(true);
   const [expandedMonthly, setExpandedMonthly] = useState(true);
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [isLoadingMarket, setIsLoadingMarket] = useState(false);
+
+  const handleFetchMarketData = async () => {
+    setIsLoadingMarket(true);
+    const data = await fetchStockMarketData(ipo.stockCode);
+    setMarketData(data);
+    setIsLoadingMarket(false);
+  };
 
   return (
     <div className="py-6 flex flex-col h-full overflow-y-auto">
@@ -635,6 +733,88 @@ const CompanyInfoScreen = ({ ipo, onBack, onRegister }: { ipo: IPOEvent, onBack:
         <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
           "{ipo.description}"
         </p>
+      </div>
+
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-blue-600 rounded-full" />
+            Thông tin niêm yết (Sân bãi)
+          </h3>
+          <button 
+            onClick={handleFetchMarketData}
+            disabled={isLoadingMarket}
+            className="text-[10px] font-black text-blue-600 uppercase flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-all disabled:opacity-50"
+          >
+            {isLoadingMarket ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}
+            {marketData ? 'Cập nhật' : 'Lấy dữ liệu sàn'}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {marketData && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gray-900 text-white rounded-3xl p-6 shadow-xl mb-6 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Globe size={120} />
+              </div>
+              
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Giá hiện tại (VNĐ)</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black">{marketData.price}</span>
+                    <span className={`text-sm font-bold ${marketData.change.startsWith('+') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {marketData.change} ({marketData.changePercent})
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Khối lượng</p>
+                  <p className="text-lg font-black">{marketData.volume}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-y-4 gap-x-8 border-t border-white/10 pt-6 mb-6">
+                <div>
+                  <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mb-1">Vốn hóa thị trường</p>
+                  <p className="text-xs font-black uppercase">{marketData.marketCap}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mb-1">Chỉ số P/E</p>
+                  <p className="text-xs font-black uppercase">{marketData.peRatio}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mb-1">Tỷ suất cổ tức</p>
+                  <p className="text-xs font-black uppercase">{marketData.dividendYield}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mb-1">52 Tuần (H/L)</p>
+                  <p className="text-xs font-black uppercase">{marketData.high52w} / {marketData.low52w}</p>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                  <TrendingUp size={10} />
+                  Nhận định thị trường
+                </p>
+                <p className="text-[11px] font-medium leading-relaxed italic opacity-90">
+                  {marketData.summary}
+                </p>
+              </div>
+
+              <div className="mt-4 flex justify-center">
+                <a href={`https://banggia.cafef.vn/stock/${ipo.stockCode}`} target="_blank" rel="noreferrer" className="text-[9px] font-bold text-blue-400 flex items-center gap-1 hover:underline">
+                  Xem chi tiết trên sàn chứng khoán <ExternalLink size={10} />
+                </a>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {ipo.financialHighlights && (
@@ -829,7 +1009,7 @@ export default function App() {
   const [expandedQuarterly, setExpandedQuarterly] = useState(false);
   const [expandedMonthly, setExpandedMonthly] = useState(false);
   const [expandedRefundInfo, setExpandedRefundInfo] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'manual'>('qr');
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'manual' | 'account'>('qr');
   const [showStatusHelp, setShowStatusHelp] = useState(false);
 
   const handleSelectIpo = (ipo: IPOEvent) => {
@@ -1549,14 +1729,8 @@ export default function App() {
                   <input 
                     type="text"
                     value={formData.price?.toLocaleString('vi-VN') || ''}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\./g, '');
-                      if (!isNaN(Number(val))) {
-                        setFormData({...formData, price: Number(val)});
-                      }
-                    }}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                    placeholder="Nhập giá"
+                    readOnly
+                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-4 font-bold text-lg text-gray-500 focus:outline-none cursor-not-allowed transition-all"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 uppercase">VNĐ</div>
                 </div>
@@ -1598,6 +1772,45 @@ export default function App() {
                       className="overflow-hidden"
                     >
                       <div className="px-5 pb-5 space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Chọn tài khoản lưu sẵn</label>
+                          <div className="relative group">
+                            <select 
+                              onChange={(e) => {
+                                const selected = MOCK_BANK_ACCOUNTS.find(a => a.accountNumber === e.target.value);
+                                if (selected) {
+                                  setFormData({
+                                    ...formData, 
+                                    refundBankInfo: {
+                                      bankName: selected.bankName,
+                                      accountNumber: selected.accountNumber,
+                                      accountName: selected.accountName
+                                    }
+                                  });
+                                }
+                              }}
+                              className="w-full bg-blue-50/50 border border-blue-100 rounded-xl px-3 py-3 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all appearance-none cursor-pointer"
+                              value={formData.refundBankInfo?.accountNumber || ''}
+                            >
+                              <option value="" disabled>--- Chọn tài khoản ---</option>
+                              {MOCK_BANK_ACCOUNTS.map((acc, idx) => (
+                                <option key={idx} value={acc.accountNumber}>
+                                  {acc.bankName} - {acc.accountNumber}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                              <ChevronDown size={16} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative flex items-center py-1">
+                          <div className="flex-grow border-t border-gray-100"></div>
+                          <span className="flex-shrink mx-4 text-[8px] font-bold text-gray-300 uppercase tracking-widest">Hoặc nhập thủ công</span>
+                          <div className="flex-grow border-t border-gray-100"></div>
+                        </div>
+
                         <div>
                           <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Ngân hàng</label>
                           <input 
@@ -1948,26 +2161,58 @@ export default function App() {
               {/* Payment Method Toggle */}
               <div className="flex p-1 bg-gray-100 rounded-2xl mb-8">
                 <button 
+                  onClick={() => setPaymentMethod('account')}
+                  className={`flex-1 py-3 px-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex flex-col items-center justify-center gap-1.5 ${
+                    paymentMethod === 'account' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'
+                  }`}
+                >
+                  <CreditCard size={16} />
+                  <span>TK Chứng khoán</span>
+                </button>
+                <button 
                   onClick={() => setPaymentMethod('qr')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'qr' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'
+                  className={`flex-1 py-3 px-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex flex-col items-center justify-center gap-1.5 ${
+                    paymentMethod === 'qr' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'
                   }`}
                 >
                   <QrCode size={16} />
-                  Mã QR
+                  <span>Mã QR</span>
                 </button>
                 <button 
                   onClick={() => setPaymentMethod('manual')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'manual' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'
+                  className={`flex-1 py-3 px-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex flex-col items-center justify-center gap-1.5 ${
+                    paymentMethod === 'manual' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'
                   }`}
                 >
                   <FileText size={16} />
-                  Chuyển khoản
+                  <span>Chuyển khoản</span>
                 </button>
               </div>
   
-              {paymentMethod === 'qr' ? (
+              {paymentMethod === 'account' ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-blue-50 border border-blue-100 rounded-3xl p-6 mb-8"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                      <CreditCard size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-gray-900 uppercase">Trích nợ tự động</h4>
+                      <p className="text-[9px] text-gray-500 font-medium leading-none mt-1 uppercase tracking-wider">Tài khoản: {selectedReg.stockAccount || '0123456789'}</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-600 leading-relaxed mb-6 italic">
+                    Hệ thống sẽ tự động hoàn tất thanh toán {remainingAmount.toLocaleString()} VNĐ bằng số dư trong tài khoản chứng khoán của bạn. 
+                  </p>
+                  <div className="bg-white p-4 rounded-xl border border-blue-50">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-1">Số dư khả dụng ước tính</p>
+                    <p className="text-sm font-black text-emerald-600">{(remainingAmount * 1.5).toLocaleString()} VNĐ</p>
+                  </div>
+                </motion.div>
+              ) : paymentMethod === 'qr' ? (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -2046,14 +2291,21 @@ export default function App() {
               <div className="space-y-3 mt-auto">
                 <button 
                   onClick={() => {
-                    const updatedReg: Registration = { ...selectedReg, additionalPaymentRequired: 0, status: RegistrationStatus.PAYMENT_SUBMITTED };
+                    const updatedReg: Registration = { 
+                      ...selectedReg, 
+                      additionalPaymentRequired: 0, 
+                      status: RegistrationStatus.PAYMENT_SUBMITTED,
+                      depositMethod: paymentMethod === 'account' ? 'STOCK_ACCOUNT' : 'BANK_TRANSFER'
+                    };
                     setRegistrations(registrations.map(r => r.id === selectedReg.id ? updatedReg : r));
                     setSelectedReg(updatedReg);
                     setCurrentStep('success');
                   }}
-                  className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black shadow-xl shadow-orange-100 hover:bg-orange-700 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm"
+                  className={`w-full py-5 rounded-2xl font-black shadow-xl active:scale-95 transition-all uppercase tracking-[0.2em] text-sm ${
+                    paymentMethod === 'account' ? 'bg-blue-600 shadow-blue-100 hover:bg-blue-700' : 'bg-orange-600 shadow-orange-100 hover:bg-orange-700'
+                  } text-white`}
                 >
-                  Xác nhận tôi đã chuyển khoản
+                  {paymentMethod === 'account' ? 'Nộp tiền từ TK Chứng khoán' : 'Xác nhận tôi đã chuyển khoản'}
                 </button>
                 <button 
                   onClick={() => setCurrentStep('allocation_details')}
@@ -2077,6 +2329,14 @@ export default function App() {
             onViewAllocation={() => {
               setSelectedReg(completedReg);
               setCurrentStep('allocation_details');
+            }}
+            onUpdateMethod={(id, method) => {
+              const updatedRegs = registrations.map(r => r.id === id ? { ...r, depositMethod: method } : r);
+              setRegistrations(updatedRegs);
+              const updatedReg = updatedRegs.find(r => r.id === id);
+              if (updatedReg) {
+                setSelectedReg(updatedReg);
+              }
             }}
           />
         );
